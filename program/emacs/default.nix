@@ -12,6 +12,7 @@ let
 
    pkgs = import nixpkgs {
      overlays = [
+       overlay
       #(import sources.emacs-overlay)
 	  (self: super:
 	  {
@@ -218,9 +219,39 @@ let
 
 (deft)
 '';
+amethyst-el = pkgs.writeText "default.el" (builtins.readFile (pkgs.fetchFromGitHub {
+          owner = "ashton314";
+          repo = "amethyst";
+          rev = "13a0cf9665b789d83619eb0845d1388f35a98d9c";            #
+          sha256 = "0p6g7a5ra1klqc41qy9nc64pwgpqk1g9cmzmhbxcb75j5b06qh1m";
+        } + "/amethyst.el"));
+
+        mkScript = { name, version, file, env ? [ ] }:
+    pkgs.writeTextFile {
+      name = "${name}-${version}";
+      executable = true;
+      destination = "/bin/${name}";
+      text = ''
+        for i in ${pkgs.lib.concatStringsSep " " env}; do
+          export PATH="$i/bin:$PATH"
+        done
+
+        echo Running: exec ${file} -q -l ${amethyst-el}
+        exec ${file} -q -l ${amethyst-el}
+      '';
+    };
 in
   {
-    home.packages = [
+    home.packages = let amethystemacs = (pkgs.emacsWithPackagesFromUsePackage {
+              config = "";
+              package = pkgs.emacsUnstable; # does no work with the *-nox version
+            }); in [
+          (mkScript {
+            name = "emacsam";
+            version = "0.1";
+            file = "${amethystemacs}/bin/emacs";
+            env = with self; [ pkgs.bash ];
+    })
       (pkgs.emacsWithPackagesFromUsePackage {
         config = builtins.readFile myEmacsConfig;
         package = pkgs.emacsUnstable-nox;
@@ -248,5 +279,6 @@ mkdir -p $out/share/emacs/site-lisp
 (setq package-enable-at-startup nil)
 (provide 'early-init)
           '';
+
     };
-  }
+}

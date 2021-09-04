@@ -16,6 +16,10 @@ in with { overlay = _: pkgs:
     pkgs = import nixpkgs {
       overlays = [
         overlay
+       (import "${builtins.fetchTarball {
+          url = "https://github.com/${sources.gomod2nix.owner}/${sources.gomod2nix.repo}/archive/${sources.gomod2nix.rev}.tar.gz";
+          sha256 = sources.gomod2nix.sha256;
+        }}/overlay.nix")
         (self: super: # until 0.2.0 is released and in nixpkgs
         {
           pandoc-plantuml-filter = super.pandoc-plantuml-filter.overrideAttrs (old: {
@@ -91,10 +95,12 @@ in with { overlay = _: pkgs:
               rev = sources.nvd.rev;
               sha256 = sources.nvd.sha256;
             }) { pkgs = self; });
-            rnix-lsp = super.callPackage <nixpkgs/pkgs/development/tools/rnix-lsp> {
-              rustPlatform = super.rustPlatform // {
-                buildRustPackage  = args:
-                super.rustPlatform.buildRustPackage (args // {
+
+        ever-given = super.callPackage sources.ever-given {};
+
+        # https://nixos.wiki/wiki/Overlays#Python_Packages_Overlay - rec also possible here instead of self.ever-given
+        rnix-lsp =
+            self.ever-given.buildRustPackage {
                   src =
                     super.fetchFromGitHub {
                       owner = sources.rnix-lsp.owner;
@@ -102,10 +108,24 @@ in with { overlay = _: pkgs:
                       rev = sources.rnix-lsp.rev;
                       sha256 = sources.rnix-lsp.sha256;
                     };
-                    cargoSha256 = sources.rnix-lsp.cargoSha256;
-                  });
-                };
-              };
+                  };
+
+#            # DONE consider using https://github.com/nix-community/ever-given - Ever Given provides a wrapper for rustPlatform.buildRustPackage. The only difference is, you don't specify a cargoSha256 or cargoHash.
+#            rnix-lsp_ORIGINAL = super.callPackage <nixpkgs/pkgs/development/tools/rnix-lsp> {
+#              rustPlatform = super.rustPlatform // {
+#                buildRustPackage  = args:
+#                super.rustPlatform.buildRustPackage (args // {
+#                  src =
+#                    super.fetchFromGitHub {
+#                      owner = sources.rnix-lsp.owner;
+#                      repo = sources.rnix-lsp.repo;
+#                      rev = sources.rnix-lsp.rev;
+#                      sha256 = sources.rnix-lsp.sha256;
+#                    };
+#                    cargoSha256 = sources.rnix-lsp.cargoSha256;
+#                  });
+#                };
+#              };
             })
             (import sources.neovim-nightly-overlay)
           ]; config = {};
@@ -265,13 +285,23 @@ in with { overlay = _: pkgs:
     shfmt
 
     # https://github.com/koalaman/shellcheck - ShellCheck, a static analysis tool for shell scripts
-    shellcheck
+    #shellcheck # try haskell build
 
     # https://github.com/timofurrer/pandoc-plantuml-filter - Pandoc filter which converts PlantUML code blocks to PlantUML images (usage example: https://github.com/timofurrer/pandoc-plantuml-filter/pull/14#issuecomment-805739942)
     pandoc-plantuml-filter
+
+    # https://github.com/eddieantonio/imgcat - It's like cat, but for images.
+    img-cat
+
+    # https://github.com/tweag/gomod2nix - Convert applications using Go modules to Nix expressions
+    gomod2nix
+
+    # https://github.com/BurntSushi/ripgrep - ripgrep is a line-oriented search tool that recursively searches the current directory for a regex pattern.
+    ripgrep
   ];
 
-  programs.command-not-found.enable = true;
+  # I am overriding this in programs.bash.interactiveShellInit
+  programs.command-not-found.enable = false;
 
   programs.home-manager = let
     src = pkgs.fetchFromGitHub {
@@ -298,6 +328,8 @@ in with { overlay = _: pkgs:
 
   programs.autojump.enable = true;
 
+  programs.nix-index.enable = true;
+
   # Since we do not install home-manager, you need to let home-manager
   # manage your shell, otherwise it will not be able to add its hooks
   # to your profile.
@@ -312,6 +344,13 @@ in with { overlay = _: pkgs:
       EDITOR = "vim";
       PATH = "\${PATH}:/mnt/c/Windows/System32:/mnt/c/Users/${(builtins.getEnv "USER")}/scoop/apps/pwsh/current";
     };
+
+  # https://discourse.nixos.org/t/overriding-command-not-found-handler/14060/2
+  # https://superuser.com/a/1252874/432066
+  # https://github.com/nvbn/thefuck/issues/875#issuecomment-622950935
+  # https://github.com/bennofs/nix-index#usage-as-a-command-not-found-replacement
+  # https://nix-community.github.io/home-manager/options.html#opt-programs.nix-index.enable
+  #interactiveShellInit = '' '';
 
     profileExtra = mkMerge [
       (mkBefore ''
@@ -420,14 +459,6 @@ in with { overlay = _: pkgs:
         autocmd WinEnter,VimEnter * :silent! call matchadd('Todo', 'TODO\|FIXME\|IMPORTANT', -1)
       augroup END
 
-      "set formatexpr=LanguageClient#textDocument_rangeFormatting_sync()
-      " Not supported by neovim in debian
-      " set signcolumn=yes
-
-      function! HandleWindowProgress(params) abort
-      echomsg json_encode(a:params)
-      endfunction
-
         " do not run linters while you type
         "let g:ale_lint_on_text_changed = 'never'
 
@@ -530,6 +561,9 @@ in with { overlay = _: pkgs:
       # Wrong assumption tested with version before nix/sources.nix same: I assume problems with how I use sources.nix (niv) interferes with https://github.com/autozimu/LanguageClient-neovim/blob/075184af2cd5397e2021099ec2495d05af28e5a4/shell.nix somehow
       # DEACTIVATED until fixed https://github.com/NixOS/nixpkgs/issues/129629
       #LanguageClient-neovim
+
+      # https://github.com/junegunn/fzf - fzf is a general-purpose command-line fuzzy finder.
+      fzf-vim
     ];
     settings = { ignorecase = true; };
   };
@@ -570,6 +604,10 @@ in with { overlay = _: pkgs:
       userEmail = "d.kahlenberg@gmail.com";
       userName = "573";
       aliases = with pkgs; {
+        # https://stackoverflow.com/a/52314638/3320256 - Create a git patch from the uncommitted changes in the current working directory
+        make-patch = "!f() { \\
+        git add .;git commit -m ''uncommited''; git format-patch HEAD~1; git reset HEAD~1 \\
+        }; f";
         issue = "!${gitissueSrc}/git-issue.sh";
       # https://utcc.utoronto.ca/~cks/space/blog/programming/GitAliasesIUse
       source = "remote get-url origin";
@@ -724,9 +762,59 @@ in with { overlay = _: pkgs:
         };
       };
 
-      home.activation.linkMyStuff = dagEntryAfter [ "writeBoundary" ] ''
-        ln -sf /mnt/c/Users/$USER/journal.txt ${config.home.homeDirectory}/.local/share/jrnl/journal.txt
-      '';
+      # outdated: https://github.com/nix-community/home-manager/issues/257#issuecomment-831300021
+      #home.activation.linkMyStuff = dagEntryAfter [ "writeBoundary" ] ''
+      #  ln -sf /mnt/c/Users/$USER/journal.txt ${config.home.homeDirectory}/.local/share/jrnl/journal.txt
+      #  ln -sf /mnt/c/Users/$USER/Documents/PowerShell/Home-Manager-Managed.ps1 ${config.home.homeDirectory}/.local/share/PowerShell/Home-Manager-Managed.ps1
+      #'';
+
+      news.entries = [
+      {
+        time = "2021-08-05T14:04:00+00:00";
+        condition = builtins.pathExists config.home.file.".local/share/PowerShell/Home-Manager-Managed.ps1".source;
+        message = ''
+To use the managed powershell script via Windows add the following to Microsoft.PowerShell_profile.ps1 ("Archlinux" needs to be changed matching your WSL instance's name):
+```
+# -*- mode: ps1 -*-
+
+function Get-ReparseTarget {
+    [cmdletbinding()]
+    param(
+        [Parameter(Mandatory=$true)][string]$path
+    )
+    $fsutil = fsutil.exe reparsepoint query $path
+    # gets the hex-stream out of fsutil output as array
+    $hex = ($fsutil.Where({$_ -match "[0-9a-f]{4}: .*"}) | Select-String "[0-9a-f][0-9a-f] " -AllMatches).Matches.Value.Trim()
+    # Convert to Bytestream
+    $Bytestream = [byte[]]($hex | foreach{[Convert]::ToInt32($_,16)})
+    # Unicode2Ascii + Trim the "Trailing Zero", which is added depending on the target type.
+    $Unicode = ([System.Text.Encoding]::UTF8.GetChars($Bytestream) -join ''').TrimEnd("`0")
+    # We split by "Zero Character" and by "\??\", and keep the latest match, works for a file, a directory and a junction.
+    $($Unicode -split "`0" -split "\\\?\?\\")[-1]
+}
+
+$currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
+if(!$currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+	$includefile = "\\wsl$\Archlinux" + (Get-ReparseTarget ([System.IO.Path]::GetFullPath([System.IO.Path]::GetDirectoryName($PROFILE) + "\Home-Manager-Managed-link.ps1")))
+	$tempinclude = copy-item $includefile ([System.IO.Path]::GetTempFileName() + ".ps1") -Force -PassThru
+	Write-Host "Sourcing $([System.IO.Path]::GetFullPath($tempinclude)) ($([System.IO.Path]::GetFullPath($includefile)))"
+	. $tempinclude
+	remove-item $tempinclude
+	# Now prepare the include file for the elevated account, as the elevated account doesn't allow reading "\\wsl$\Archlinux"
+	$includefile = "\\wsl$\Archlinux" + (Get-ReparseTarget ([System.IO.Path]::GetFullPath([System.IO.Path]::GetDirectoryName($PROFILE) + "\Home-Manager-ElevatedUser-Managed-link.ps1")))
+	Write-Host "Found include for elevated user $($includefile)"
+	copy-item $includefile $([System.IO.Path]::GetFullPath([System.IO.Path]::GetDirectoryName($PROFILE) + "\Home-Manager-ElevatedUser-Managed.ps1")) -Force
+}
+
+if($currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+	$includefile = $([System.IO.Path]::GetFullPath([System.IO.Path]::GetDirectoryName($PROFILE) + "\Home-Manager-ElevatedUser-Managed.ps1"))
+    Write-Host "Sourcing $($includefile)"
+    . $includefile
+}
+```
+        '';
+      }
+    ];
 
       home.file = with pkgs; let
         patchShebang = ''
@@ -757,6 +845,482 @@ in with { overlay = _: pkgs:
       *.swp
       *.swo
     '';
+
+    # https://gist.github.com/CMCDragonkai/de84aece83f8521d087416fa21e34df4
+    ".local/share/jrnl/journal.txt".source = config.lib.file.mkOutOfStoreSymlink /mnt/c/Users + "/${config.home.username}/journal.txt";
+
+    ".local/share/PowerShell/Home-Manager-ElevatedUser-Managed.ps1" = {
+      onChange = ''
+        echo Read home-manager news to see how this is enabled in your PS config.
+        echo "Get according line in news file: home-manager news | grep -n -i 'managed powershell'"
+        '';
+
+      source = runCommandLocal "dummy" {
+
+      input = ''
+# https://stackoverflow.com/questions/8360215/use-ctrl-d-to-exit-and-ctrl-l-to-cls-in-powershell-console#comment56603550_14324788
+#Set-PSReadlineKeyHandler -Key Ctrl+d -Function DeleteCharOrExit
+Set-PSReadlineOption -EditMode Vi
+
+Import-WslCommand "awk", "grep", "head", "less", "ls", "man", "sed", "seq", "ssh", "tail", "bash", "xargs"
+
+$WslDefaultParameterValues = @{}
+$WslDefaultParameterValues["xargs"] = "-o"
+$WslDefaultParameterValues["grep"] = "-E"
+$WslDefaultParameterValues["less"] = "-i"
+$WslDefaultParameterValues["ls"] = "-AFh --group-directories-first"
+$WslDefaultParameterValues["wsl"] = "-- bash --login --init-file /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh"
+#$WslDefaultParameterValues["Disabled"] = $True
+
+$WslEnvironmentVariables = @{}
+
+$PSDefaultParameterValues = @{}
+$PSDefaultParameterValues["Export-Csv:Delimiter"]=";"
+# https://stackoverflow.com/a/40098904/3320256
+$PSDefaultParameterValues['*:Encoding'] = 'utf8'
+# https://stackoverflow.com/a/49481797/3320256
+$OutputEncoding = [console]::InputEncoding = [console]::OutputEncoding = New-Object System.Text.UTF8Encoding
+
+$env:psmodulepath = "$env:userprofile\scoop\modules;$env:psmodulepath"
+
+function As-Admin-Disable-Spooler { Stop-Service -Name Spooler ; Set-Service -Name Spooler -StartupType Disabled }
+
+function As-Admin-Enable-Spooler { Set-Service -Name Spooler -StartupType Manual ; Start-Service -Name Spooler }
+
+function As-Admin-GetHoursLog { Get-WinEvent -FilterHashtable @{ LogName='Security','System'; Id=4800,4801,7001,7002; StartTime=(Get-Date).AddHours(-[double]$args[0]) } }
+
+# pshazz use default; pshazz edit default (remove ssh plugin)
+try { $null = gcm pshazz -ea stop; pshazz init } catch { }
+
+# https://github.com/Moeologist/scoop-completion
+Import-Module "$($(Get-Item $(Get-Command scoop).Path).Directory.Parent.FullName)\modules\scoop-completion"
+
+Import-Module posh-git
+Import-Module oh-my-posh
+Set-Theme Star
+        '';
+    } ''
+printf "$input" \
+| sed \
+'s/\(\\\$\)[^(]+/\\\1/g' \
+> "$out"
+rm /mnt/c/Users/${config.home.username}/Documents/PowerShell/Home-Manager-ElevatedUser-Managed-link.ps1
+ln -sf $out /mnt/c/Users/${config.home.username}/Documents/PowerShell/Home-Manager-ElevatedUser-Managed-link.ps1
+echo $out
+    '';
+  };
+
+    # https://github.com/NixOS/nixpkgs/blame/bed52081e58807a23fcb2df38a3f865a2f37834e/pkgs/build-support/trivial-builders.nix#L28
+    ".local/share/PowerShell/Home-Manager-Managed.ps1" = {
+
+      onChange = ''
+      echo Read home-manager news to see how this is enabled in your PS config.
+      echo "Get according line in news file: home-manager news | grep -n -i 'managed powershell'"
+        '';
+
+      source = runCommandLocal "dummy" {
+
+          input = ''
+<# .SYNOPSIS #>
+# https://stackoverflow.com/questions/8360215/use-ctrl-d-to-exit-and-ctrl-l-to-cls-in-powershell-console#comment56603550_14324788
+#Set-PSReadlineKeyHandler -Key Ctrl+d -Function DeleteCharOrExit
+Set-PSReadlineOption -EditMode Vi
+
+Import-WslCommand "awk", "grep", "head", "less", "ls", "man", "sed", "seq", "ssh", "tail", "bash", "xargs"
+
+$WslDefaultParameterValues = @{}
+$WslDefaultParameterValues["xargs"] = "-o"
+$WslDefaultParameterValues["grep"] = "-E"
+$WslDefaultParameterValues["less"] = "-i"
+$WslDefaultParameterValues["ls"] = "-AFh --group-directories-first"
+$WslDefaultParameterValues["wsl"] = "-- bash --login --init-file /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh"
+#$WslDefaultParameterValues["Disabled"] = $True
+
+$WslEnvironmentVariables = @{}
+
+$PSDefaultParameterValues = @{}
+$PSDefaultParameterValues["Export-Csv:Delimiter"]=";"
+# https://stackoverflow.com/a/40098904/3320256
+$PSDefaultParameterValues['*:Encoding'] = 'utf8'
+# https://stackoverflow.com/a/49481797/3320256
+$OutputEncoding = [console]::InputEncoding = [console]::OutputEncoding =
+                    New-Object System.Text.UTF8Encoding
+
+$env:psmodulepath = "$env:userprofile\scoop\modules;$env:psmodulepath"
+
+# view-source:https://de1.api.radio-browser.info/xml/stations/bycountry/austria
+# franceinfo http://icecast.radiofrance.fr/franceinfo-midfi.mp3
+# France Inter http://icecast.radiofrance.fr/franceinter-midfi.mp3
+function radio
+{
+	[CmdletBinding(
+		DefaultParameterSetName='station'
+	)]
+	Param(
+	[String]
+	[parameter(ParameterSetName='station',mandatory=$false, position=0)]
+	$station = 'http://icecast.radiofrance.fr/franceinter-midfi.mp3',
+	[String[]]
+	[parameter(position=1, ValueFromRemainingArguments=$true)]
+	$Remaining)
+	mpv.exe $station @Remaining
+}
+
+# See https://www.gngrninja.com/script-ninja/2020/1/19/using-psboundparameters-in-powershell and https://stackoverflow.com/questions/6714165/powershell-stripping-double-quotes-from-command-line-arguments, original idea https://community.spiceworks.com/topic/2258584-powershell-splatting-on-function-passed-as-argument (https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_Splatting?view=powershell-7.1)
+function Get-PSBoundParameters {
+    [cmdletbinding()]
+    param(
+       [Parameter(
+
+        )]
+        [string]
+        $ParamZero,
+
+        [Parameter(
+
+        )]
+        [string]
+		$ParamPath,
+
+        [Parameter(
+
+        )]
+        [string]
+        $ParamOne,
+
+        [Parameter(
+
+        )]
+        [string]
+        $ParamTwo,
+
+        # https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_functions_advanced_parameters?view=powershell-7.1#position-argument
+        [Parameter(
+            mandatory=$false, position=0, ValueFromRemainingArguments=$true
+        )]
+        [string[]]
+        $Remaining
+    )
+
+    begin {
+
+    }
+
+    process {
+
+    }
+
+    end {
+
+        Invoke-PSBoundParametersAction @PSBoundParameters
+
+    }
+}
+
+function Invoke-PSBoundParametersAction {
+    [cmdletbinding()]
+    param(
+	    [Parameter(
+
+        )]
+        [string]
+        $ParamZero = 'nix run',
+
+        [Parameter(
+
+        )]
+        [string]
+        $ParamPath = 'channel:nixpkgs-unstable',
+
+        [Parameter(
+
+        )]
+        [string]
+        $ParamOne,
+
+        [Parameter(
+
+        )]
+        [string]
+        $ParamTwo,
+
+        [Parameter(
+		mandatory=$false, position=0, ValueFromRemainingArguments=$true
+		)]
+		[string[]]
+        $Remaining
+	)
+
+    begin {
+
+        #setup our return object
+        $result = [PSCustomObject]@{
+
+            SuccessZero = $false
+            SuccessPath = $false
+			RunSwitch = '''
+			PathSwitch = '''
+			QQ = '''
+            SuccessOne = $false
+            SuccessTwo = $false
+			SuccessRemaining = $false
+
+        }
+    }
+
+    process {
+
+		if ( !$PSBoundParameters.ContainsKey('ParamZero') ) {
+			$PSBoundParameters.ParamZero = $ParamZero
+		}
+		if ( !$PSBoundParameters.ContainsKey('ParamPath') ) {
+			$PSBoundParameters.ParamPath = $ParamPath
+		}
+
+        #use a switch statement to take actions based on passed in parameters
+        switch ($PSBoundParameters.Keys) {
+            'ParamZero' {
+                switch ($ParamZero) {
+
+					'nix-shell' {
+						$result.RunSwitch = '--run'
+						$result.PathSwitch = '-I nixpkgs='
+						$result.QQ = "`\`""
+					}
+					default {
+						$result.RunSwitch = '-c'
+						$result.PathSwitch = '-f '
+						$result.QQ = '''
+					}
+				}
+                #perform actions if ParamZero is used
+                $result.SuccessZero = $true
+
+            }
+
+            'ParamPath' {
+
+                #perform actions if ParamPath is used
+                $result.SuccessPath = $true
+
+            }
+
+            'ParamOne' {
+
+                #perform actions if ParamOne is used
+                $result.SuccessOne = $true
+
+            }
+
+            'ParamTwo' {
+
+                #perform logic if ParamTwo is used
+                $result.SuccessTwo = $true
+
+            }
+
+            'Remaining' {
+
+                #perform logic if Remaining are used
+                $result.SuccessRemaining = $true
+
+            }
+
+            Default {
+
+                Write-Warning "Unhandled parameter -> [$($_)]"
+
+            }
+        }
+    }
+
+    end {
+
+		wsl -- bash --login --init-file /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh -c "$($ParamZero) $($result.PathSwitch)$($ParamPath) $($ParamOne) $($result.RunSwitch) $($result.QQ)$($ParamTwo) $($Remaining)$($result.QQ)"
+        return $result
+
+    }
+}
+
+function pandoc {
+	Write-Host @args
+	Get-PSBoundParameters -ParamZero 'nix-shell' -ParamOne '-p pandoc -p texlive.combined.scheme-small' -ParamTwo 'pandoc' @args
+}
+
+function exa {
+	Write-Host @args
+	Get-PSBoundParameters -ParamOne 'exa' -ParamTwo 'exa' @args
+}
+
+function mc {
+	Write-Host @args
+	Get-PSBoundParameters -ParamOne 'ranger' -ParamTwo 'ranger' @args
+}
+
+            function searx {
+            Write-Host @args
+            Get-PSBoundParameters -ParamZero 'SEARX_SETTINGS_PATH=~/.config/searx/settings.yml nix run' -ParamOne 'searx' -ParamTwo 'searx-run'
+            }
+
+function jrnl {
+        Write-Host @args
+        Pass-To-Wrapped-Shell-WSL-Nix jrnl @args
+}
+
+function Pass-To-Wrapped-Shell-WSL-Nix {
+[cmdletbinding(
+        DefaultParameterSetName='shcmd'
+    )]
+Param(
+[Parameter(
+	ParameterSetName='shcmd',
+	Mandatory=$false,
+	Position=0,
+	ValueFromRemainingArguments
+	)]
+[String]$shcmd = 'env'
+)
+	wsl -- bash --login --init-file /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh -c "$shcmd"
+}
+
+function Invoke-Via-NixRun {
+[CmdletBinding()]
+    Param
+    (
+        [parameter(mandatory=$false, position=0, ValueFromRemainingArguments=$true)]
+		[string[]]$Remaining = 'ranger -c ranger --help'
+    )
+	Pass-To-Wrapped-Shell-WSL-Nix nix run `-f channel:nixpkgs-unstable @Remaining
+}
+
+function Invoke-Via-NixShell {
+[CmdletBinding()]
+    Param
+    (
+        [parameter(mandatory=$false, position=0, ValueFromRemainingArguments=$true)]
+		[string[]]$Remaining = "`-p ranger `-`-run  `\`"ranger --help`\`""
+    )
+	Pass-To-Wrapped-Shell-WSL-Nix nix-shell `-I nixpkgs=channel:nixpkgs-unstable @Remaining
+}
+
+function Invoke-Test-Via-NixRun {
+[CmdletBinding()]
+    Param
+    (
+        [parameter(mandatory=$false, position=0, ValueFromRemainingArguments=$true)]
+		[string[]]$Remaining = '--help'
+    )
+	Invoke-Via-NixRun ranger `-c ranger @Remaining
+}
+
+function Invoke-Test-Via-NixShell {
+[CmdletBinding()]
+    Param
+    (
+        [parameter(mandatory=$false, position=0, ValueFromRemainingArguments=$true)]
+		[string[]]$Remaining = '--help'
+    )
+	Invoke-Via-NixShell `-p ranger `-`-run  `\`"ranger $($Remaining)`\`"
+}
+
+function Wrap-Shell-WSL-Nix {
+[CmdletBinding()]
+    Param
+    (
+	    [parameter(mandatory=$false, position=0)][string[]]$bashSwitch='-c',
+        [parameter(mandatory=$false, position=1, ValueFromRemainingArguments=$true)][string[]]$Remaining="nix-store --version" #"--help"
+    )
+    wsl -- bash --login --init-file /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh $($bashSwitch) "$($Remaining)"
+}
+
+function Invoke-Test-Via-P-T-W-S-W-N-NixRun {
+[CmdletBinding(DefaultParameterSetName='testargs')]
+    Param
+    (
+        [parameter(ParameterSetName='testargs', mandatory=$false, position=0, ValueFromRemainingArguments=$true)]
+		[String[]]$testargs = '--help'
+    )
+	Pass-To-Wrapped-Shell-WSL-Nix nix run `-f channel:nixpkgs-unstable ranger `-c ranger @testargs
+}
+
+function Invoke-Test-Via-P-T-W-S-W-N-NixShell {
+[CmdletBinding()]
+    Param
+    (
+        [parameter(mandatory=$false, position=0, ValueFromRemainingArguments=$true)][string[]]$Remaining = '--help'
+    )
+    # nix-shell variant
+    Pass-To-Wrapped-Shell-WSL-Nix nix-shell `-I nixpkgs=channel:nixpkgs-unstable `-p ranger `-`-run `\`"ranger "" @Remaining "" `\`"
+}
+
+function Invoke-Test-Via-W-S-W-N-NixRun {
+[CmdletBinding()]
+    Param
+    (
+        [parameter(mandatory=$false, position=0, ValueFromRemainingArguments=$true)][string[]]$Remaining = '--help'
+    )
+    # nix run variant
+    Wrap-Shell-WSL-Nix `-c "nix run `-f channel:nixpkgs-unstable ranger `-c ranger $($Remaining)"
+}
+
+function Invoke-Test-Via-W-S-W-N-NixShell {
+[CmdletBinding()]
+    Param
+    (
+        [parameter(mandatory=$false, position=0, ValueFromRemainingArguments=$true)][string[]]$Remaining = '--help'
+    )
+    # nix-shell variant
+    Wrap-Shell-WSL-Nix `-c "nix-shell `-I nixpkgs=channel:nixpkgs-unstable `-p ranger `-`-run `\`"ranger $($Remaining)`\`""
+            }
+
+function Get-Exchange-Session
+            {
+[CmdletBinding()]
+    Param
+    (
+        [parameter(mandatory=$false, position=0, ValueFromRemainingArguments=$true)][string[]]$Remaining ## Provide the connection uri for your ad-server here
+    )
+$UserCredential = Get-Credential
+$Session = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri "$($Remaining)/PowerShell/" -Authentication Kerberos -Credential $UserCredential
+Import-PSSession $Session -DisableNameChecking
+            }
+
+function Test-Remainder
+{
+     param(
+         [string]
+         [Parameter(Mandatory = $true, Position=0)]
+         $Value,
+         [string[]]
+         [Parameter(Position=1, ValueFromRemainingArguments)]
+         $Remaining="usage: i. e. Test-Remainder first one two,three four")
+     "Found $($Remaining.Count) elements"
+     for ($i = 0; $i -lt $Remaining.Count; $i++)
+     {
+        "''${i}: $($Remaining[$i])"
+     }
+}
+
+# pshazz use default; pshazz edit default (remove ssh plugin)
+try { $null = gcm pshazz -ea stop; pshazz init } catch { }
+
+# https://github.com/Moeologist/scoop-completion
+Import-Module "$($(Get-Item $(Get-Command scoop).Path).Directory.Parent.FullName)\modules\scoop-completion"
+
+Import-Module posh-git
+Import-Module oh-my-posh
+Set-Theme Star
+'';
+      } ''
+printf "$input" \
+| sed \
+'s/\(\\\$\)[^(]+/\\\1/g' \
+> "$out"
+rm /mnt/c/Users/${config.home.username}/Documents/PowerShell/Home-Manager-Managed-link.ps1
+ln -sf $out /mnt/c/Users/${config.home.username}/Documents/PowerShell/Home-Manager-Managed-link.ps1
+echo $out
+    '';
+  };
 
     # DONE ruby script for gmail-britta
     # TODO mkShell could be a better variant as it has buildInputs, ruby needed here, would make it explicit
@@ -845,25 +1409,20 @@ in with { overlay = _: pkgs:
     # https://github.com/cachix/cachix/issues/239#issuecomment-654868603
     nixConf = {
       text = ''
-# most def shoulda work
-#extra-platforms = aarch64-linux arm-linux
-#builders-use-substitutes = true
-#builders = ssh://builder
+#extra-platforms = aarch64-linux
+builders-use-substitutes = true
+builders = 'ssh://nixos-shell'
 #build-users-group = nixbld
 # https://github.com/NixOS/nix/issues/2964#issuecomment-504097120
-        sandbox = false
-#    system-features = nixos-test kvm big-parallel
-#notworking:plugin-files = ${config.home.profileDirectory}/lib/libnix_doc_plugin.so
-# FIXME Rather use https://github.com/lf-/nix-doc/issues/12
-# issue with tex2nix: plugin-files = DOLLARHERE{nix-doc}/lib/libnix_doc_plugin.so
+sandbox = false
+use-sqlite-wal = false
 # https://github.com/nix-community/nix-direnv#via-home-manager
 #keep-derivations = true
 #keep-outputs = true
 #experimental-features = nix-command flakes
-        trusted-substituters = https://hydra.nixos.org/
-        allowed-users = ${config.home.username} root
-        use-sqlite-wal = false
-        system-features = benchmark big-parallel kvm nixos-test
+trusted-substituters = https://hydra.nixos.org/
+allowed-users = ${config.home.username} root
+system-features = benchmark big-parallel kvm nixos-test
       '';
     };
   };

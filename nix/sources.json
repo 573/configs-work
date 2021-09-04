@@ -60,6 +60,18 @@
         "url": "https://github.com/nix-community/emacs-overlay/archive/44a5f3ba3876a6ccc4a5ab7afeaf22f9a5af8dfb.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
+    "ever-given": {
+        "branch": "main",
+        "description": "Minimalistic Nix expression to track Rust dependencies [maintainer=@petabyteboy]",
+        "homepage": "",
+        "owner": "nix-community",
+        "repo": "ever-given",
+        "rev": "1eda41085a1a29ca608591edc5926ee71657bb27",
+        "sha256": "1h76gqvb8ij43hcx4lbq06vnb84ixk872402dvisv47yqi5wigp4",
+        "type": "tarball",
+        "url": "https://github.com/nix-community/ever-given/archive/1eda41085a1a29ca608591edc5926ee71657bb27.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
     "git-issue": {
         "branch": "master",
         "description": "Git-based decentralized issue management",
@@ -70,6 +82,30 @@
         "sha256": "1z6dpwbikmiq5acpbji4kvmxqc2jw995rfk5703k5mvp5ps9a29q",
         "type": "tarball",
         "url": "https://github.com/dspinellis/git-issue/archive/67aacad35888b4c51e2d7be35c86fef137874f12.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "gitignore.nix": {
+        "branch": "master",
+        "description": "Nix function for filtering local git sources",
+        "homepage": "",
+        "owner": "hercules-ci",
+        "repo": "gitignore.nix",
+        "rev": "211907489e9f198594c0eb0ca9256a1949c9d412",
+        "sha256": "06j7wpvj54khw0z10fjyi31kpafkr6hi1k0di13k1xp8kywvfyx8",
+        "type": "tarball",
+        "url": "https://github.com/hercules-ci/gitignore.nix/archive/211907489e9f198594c0eb0ca9256a1949c9d412.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "gomod2nix": {
+        "branch": "master",
+        "description": "Convert applications using Go modules to Nix expressions",
+        "homepage": null,
+        "owner": "tweag",
+        "repo": "gomod2nix",
+        "rev": "67f22dd738d092c6ba88e420350ada0ed4992ae8",
+        "sha256": "0ds4iy9x69h6z0afm9yjwsw9q8l95ayvwkbnl6ifh8f8paffh2xw",
+        "type": "tarball",
+        "url": "https://github.com/tweag/gomod2nix/archive/0ds4iy9x69h6z0afm9yjwsw9q8l95ayvwkbnl6ifh8f8paffh2xw.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "home-manager": {
@@ -85,14 +121,29 @@
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "jrnl": {
+        "branch": "release",
+        "description": "Collect your thoughts and notes without leaving the command line.",
         "homepage": "https://jrnl.sh/",
         "owner": "jrnl-org",
         "repo": "jrnl",
-        "sha256": "a5f069efcaa3f5d95cc7712178b3f92915f67eed4034e5f257cc063c6b0e74d9",
+        "rev": "b23c831da5b20122791279614b10e5a365dd18d9",
+        "sha256": "0000000000000000000000000000000000000000000000000000",
         "type": "file",
-        "url": "https://pypi.org/project/jrnl/2.4.5/",
+        "url": "https://pypi.org/project/jrnl/2.8.2/",
         "url_template": "https://pypi.org/project/jrnl/<version>/",
-        "version": "2.4.5"
+        "version": "2.8.2"
+    },
+    "jupyterWith": {
+        "branch": "master",
+        "description": "declarative and reproducible Jupyter environments - powered by Nix",
+        "homepage": "",
+        "owner": "tweag",
+        "repo": "jupyterWith",
+        "rev": "37cd8caefd951eaee65d9142544aa4bd9dfac54f",
+        "sha256": "01hsfc14fnarj62rhy5rrqq3b6h2y3xr9cm5gpc9di1v8gs6ccyk",
+        "type": "tarball",
+        "url": "https://github.com/tweag/jupyterWith/archive/37cd8caefd951eaee65d9142544aa4bd9dfac54f.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "mach-nix": {
         "branch": "3.3.0",
@@ -146,25 +197,25 @@
     "nixpkgs": {
         "branch": "nixpkgs-unstable",
         "description": "Nix Packages collection",
-        "homepage": "",
+        "homepage": "https://search.nixos.org/packages",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "db6e089456cdddcd7e2c1d8dac37a505c797e8fa",
-        "sha256": "02yk20i9n5nhn6zgll3af7kp3q5flgrpg1h5vcqfdqcck8iikx4b",
+        "rev": "d5bd34ebf2c2c2b380b76cb86bc68522bc6af4d7",
+        "sha256": "0iqq9dw4bvczi7zlngql2x4z2h5l9bim4c9j0gzlj9c0xv95cv7r",
         "type": "tarball",
-        "url": "https://github.com/NixOS/nixpkgs/archive/db6e089456cdddcd7e2c1d8dac37a505c797e8fa.tar.gz",
+        "url": "https://github.com/NixOS/nixpkgs/archive/d5bd34ebf2c2c2b380b76cb86bc68522bc6af4d7.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "nixpkgs-haskell-updates": {
         "branch": "haskell-updates",
         "description": "Nix Packages collection",
-        "homepage": "",
+        "homepage": "https://haskell4nix.readthedocs.io/nixpkgs-users-guide.html",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "e68dfcb4a53c8abad243d4e2f06079b56a8bcf38",
-        "sha256": "13rfmcchsb86w9ldgwh41yd47f18d249l6rx6dk6pyq3kfyb1vm8",
+        "rev": "2eb7828b36e73477aac179ca58a26c9170e86d03",
+        "sha256": "1mnlf6kxkyx2089d49vlrbgd7hxn3z5ighgmyvvf84pjz2xkp00j",
         "type": "tarball",
-        "url": "https://github.com/NixOS/nixpkgs/archive/e68dfcb4a53c8abad243d4e2f06079b56a8bcf38.tar.gz",
+        "url": "https://github.com/NixOS/nixpkgs/archive/2eb7828b36e73477aac179ca58a26c9170e86d03.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "nur-combined": {
@@ -211,7 +262,7 @@
         "owner": "nix-community",
         "repo": "rnix-lsp",
         "rev": "55838bd432a7f4c79a33464bf76c73886226d38c",
-        "sha256": "1nfglpil23ingl67j7jd64vd56klb5jlyj0pal0ndn4ipqrhnc6c",
+        "sha256": "0g7562v9hz97x0fmg5d9rw57vls0d7m3kzc9ypys97y2sqy14w4f",
         "type": "tarball",
         "url": "https://github.com/nix-community/rnix-lsp/archive/46b769da4a01232def21809734bfe9db88ded771.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"

@@ -32,6 +32,7 @@ let
 
    pkgs = import nixpkgs {
      overlays = [
+       overlay
 	  (self: super:
 	  {
 	  })
@@ -47,6 +48,17 @@ let
   }) {
     # https://github.com/DavHau/mach-nix/blob/3.0.2/examples.md#import-mach-nix
     python = "python37";
+  };
+  pyEnvForJupyter = mach-nix.mkPython rec {
+    requirements =  ''
+        jupyterlab
+        geopandas
+        pyproj
+        pygeos
+        shapely>=1.7.0
+      '';
+
+    providers.shapely = "sdist,nixpkgs";
   };
   nix-bisect = mach-nix.buildPythonPackage {
     src = sources.nix-bisect.url;
@@ -159,9 +171,10 @@ let
 in
 {
   home.packages = with pkgs; [
-    jrnl
+    #jrnl
     #nix-bisect
-    myMachnix
+    pyEnvForJupyter 
+    #myMachnix
   ]
   ++ lib.optionals (!pkgs.stdenv.isAarch64) (with pkgs; [
     #gst_all_1.gstreamer
@@ -271,45 +284,16 @@ in
     };
 
     "jupytertest.ipynb" = {
-      # generated from test.md using command:
-      # pandoc --from markdown --to ipynb -s --atx-headers --wrap=preserve --preserve-tabs test.md -o test.ipynb
-      # I. e. https://github.com/mwouts/jupytext/tree/32303a6c997ce651d96c675f860282d73d5ccd6a/demo
-      text = ''
-        {
-         "cells": [
-          {
-           "cell_type": "code",
-           "execution_count": null,
-           "metadata": {},
-           "outputs": [],
-           "source": [
-            "from urllib.request import urlretrieve\n",
-            "iris = 'http://archive.ics.uci.edu/ml/machine-learning-databases/iris/iris.data'\n",
-            "urlretrieve(iris)\n",
-           ]
-          }
-         ],
-         "nbformat": 4,
-         "nbformat_minor": 5,
-         "metadata": {
-          "jupytext": {
-           "formats": "ipynb,.pct.py:percent,.lgt.py:light,.spx.py:sphinx,md,Rmd,.pandoc.md:pandoc",
-           "cell_markers": "region,endregion",
-           "text_representation": {
-            "format_version": 1.1,
-            "jupytext_version": "1.1.0",
-            "extension": ".md",
-            "format_name": "markdown"
-           }
-          },
-          "kernelspec": {
-           "name": "python3",
-           "display_name": "Python 3",
-           "language": "python"
-          }
-         }
-        }
-      '';
+      source = pkgs.runCommand "generate-jupytertest.ipynb" {
+          input = pkgs.fetchurl {
+            name = "jupytertest.ipynb";
+            url = "https://raw.githubusercontent.com/mwouts/jupytext/32303a6c997ce651d96c675f860282d73d5ccd6a/demo/World%20population.pandoc.md";
+            sha256 = "0bz70wllqiy5hhhy5l26z7krk9pikwikvs15lpnnyxmr1203d2s4";
+          };
+        } ''
+          echo ${pkgs.pandoc}/bin/pandoc --from markdown --to ipynb -s --atx-headers --wrap=preserve --preserve-tabs $src -o $out
+          ${pkgs.pandoc}/bin/pandoc --from markdown --to ipynb -s --atx-headers --wrap=preserve --preserve-tabs $src -o $out
+          '';
+      };
     };
-  };
 }

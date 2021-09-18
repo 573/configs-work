@@ -21,7 +21,182 @@ in with { overlay = _: pkgs:
           sha256 = sources.gomod2nix.sha256;
         }}/overlay.nix")
         (self: super: # until 0.2.0 is released and in nixpkgs
-        {
+        let
+          # Custom nix related shell scripts - https://github.com/malob/nixpkgs/blob/0f1fc6e10de9f182114df3406228fc75330e4fe2/home-manager/configuration.nix#L91
+          # Collect garbage, optimize store, repair paths
+          nix-cleanup-store = super.writeTextFile {
+            name = "nix-cleanup-store";
+            text = ''
+              #!${super.runtimeShell}
+              nix-collect-garbage -d
+              # In case of errors: https://forum.holochain.org/t/nix-shell-tips-opening-lock-file-permission-denied/5173
+              nix optimise-store 2>&1 | sed -E 's/.*'\'''(\/nix\/store\/[^\/]*).*'\'''/\1/g' | uniq | sudo -E ${self.pkgs.parallel}/bin/parallel 'nix-store --repair-path {}'
+            '';
+            executable = true;
+            destination = "/bin/nix-cleanup-store";
+            checkPhase = ''
+              ${super.shellcheck}/bin/shellcheck -x "$out"/bin/nix-cleanup-store
+            '';
+          };
+
+          # Update custom packages
+          nix-update-mypkgs = super.writeTextFile {
+            name = "nix-update-mypkgs";
+            text = ''
+              #!${super.runtimeShell}
+              #pushd ~/.config/nixpkgs/program/node-packages
+              #printf "\n*************************************\n"
+              #printf "\nUpdating Node package nix expressions\n"
+              #printf "\n*************************************\n"
+              #$${self.pkgs.nodePackages.node2nix}/bin/node2nix --nodejs-12 -i node-packages.json
+              #popd
+              pushd ~/.config/nixpkgs/program/ruby-gems/ || exit
+              printf "\n**********************************\n"
+              printf "\nUpdating Ruby Gems nix expressions\n"
+              printf "\n**********************************\n"
+              ${self.pkgs.bundix}/bin/bundix -l
+              popd || exit
+
+              # If there is no gomod2nix.toml file yet, let's assume to generate one
+              pushd ~/.config/nixpkgs/program/go/tickgit/ || exit
+              printf "\n**********************************\n"
+              printf "\nGenerating gomod2nix.toml file\n"
+              printf "\n**********************************\n"
+              read -r -d ''' usage <<-EOF
+                  Not automatable yet.
+                  In case there is no or no current gomod2nix.toml yet:
+                  Change directory to ~/.config/nixpkgs/program/go/tickgit/ and run
+                  nix-shell
+                  and therein
+                  gomod2nix -dir \$src -outdir . -keep-going true
+              EOF
+              printf '%s\n' "$usage"
+              popd || exit
+
+              pushd ~/.config/nixpkgs/program/go/zk/ || exit
+              printf "\n**********************************\n"
+              printf "\nGenerating gomod2nix.toml file\n"
+              printf "\n**********************************\n"
+              read -r -d ''' usage <<-EOF
+                  Not automatable yet.
+                  In case there is no or no current gomod2nix.toml yet:
+                  Change directory to ~/.config/nixpkgs/program/go/zk/ and run
+                  nix-shell
+                  and therein
+                  gomod2nix -dir \$src -outdir . -keep-going true
+              EOF
+              printf '%s\n' "$usage"
+              popd || exit
+            '';
+            executable = true;
+            destination = "/bin/nix-update-mypkgs";
+            checkPhase = ''
+              ${super.shellcheck}/bin/shellcheck -e SC2154 -x "$out"/bin/nix-update-mypkgs
+            '';
+          };
+
+          # Build on remote host for home-manager
+          hm-remote = super.writeTextFile {
+            name = "hm-remote";
+            text = ''
+              #!${super.runtimeShell}
+              pushd ~/.config/nixpkgs || exit
+              printf "\n*************************************\n"
+              printf "\nBuilding on remote builder           \n"
+              printf "\n*************************************\n"
+              NIX_PATH=nixpkgs=http://nixos.org/channels/nixpkgs-unstable/nixexprs.tar.xz nix-shell --run "home-manager --option builders 'ssh-ng://nixos-shell' --argstr system x86_64-linux --show-trace --max-jobs 0 switch"
+              popd || exit
+            '';
+            executable = true;
+            destination = "/bin/hm-remote";
+            checkPhase = ''
+              ${super.shellcheck}/bin/shellcheck -x "$out"/bin/hm-remote
+            '';
+          };
+
+          # TODO shellcheck ggf. ersetzen durch Fuuzetsu/shellcheck-nix-attributes oder
+          # shellcheckedScriptBin and shellcheckedScript - https://github.com/nix-community/linuxkit-nix/blob/2e25fc8b057c647144ffa7c9b9bdb325f2dd2d23/linuxkit-builder/default.nix#L48
+        in {
+
+          myenv-script = super.writeTextFile {
+            name = "myenv";
+            text = ''
+              #!${super.runtimeShell}
+
+              main() {
+
+                [[ $1 == -h ]] || [[ $1 == help ]] && {
+                  read -r -d ''' usage <<-EOF
+                    usage: myenv [[nix] update]
+                               | [nix [update-mypkgs| rebuild]]
+                               | [[nix] clean]
+                               | [help]
+              EOF
+                    echo "$usage"
+                    exit
+                  }
+
+                  # Nix
+                  if [ "$1" = 'update' ] || { [ "$1" = 'nix' ] && [ "$2" = 'update' ]; }; then
+                    pushd ~/.config/nixpkgs || exit
+                    ${self.pkgs.niv}/bin/niv update "$3"
+                    popd || exit
+                  fi
+                  if [ "$1" = 'update' ] || { [ "$1" = 'nix' ] && [ "$2" = 'update-mypkgs' ]; }; then
+                    ${nix-update-mypkgs}/bin/nix-update-mypkgs
+                  fi
+                  if [ "$1" = 'update' ] || { [ "$1" = 'nix' ] && { [ "$2" = 'update' ] || [ "$2" = 'update-mypkgs' ] || [ "$2" = 'rebuild' ]; }; }; then
+                    ${if (builtins.elemAt (builtins.match "NAME=\"?([A-z]+)\"?.*" (builtins.readFile /etc/os-release)) 0) == "NixOS" then  "nixos-rebuild switch"
+                    else
+                    "home-manager switch"
+                    }
+                    if [ "$1" = 'nix' ]; then exit 0; fi
+                  elif [ "$1" = 'clean' ] || { [ "$1" = 'nix' ] && [ "$2" = 'clean' ]; }; then
+                    ${nix-cleanup-store}/bin/nix-cleanup-store
+                    if [ "$1" = 'nix' ]; then exit 0; fi
+                  fi
+                  # Other
+                  # if [ "$1" = 'update' ]; then
+                    # tldr --update
+                    # fish -C fish_update_completions
+                  # else
+                    echo "Unknown command"
+                  # fi
+              }
+
+              main "$@"
+            '';
+            executable = true;
+            destination = "/bin/myenv";
+            checkPhase = ''
+              ${super.shellcheck}/bin/shellcheck -x "$out"/bin/myenv
+            '';
+          };
+
+          home-manager-script = super.writeTextFile {
+            name = "hm";
+            text = ''
+              #!${super.runtimeShell}
+
+              main() {
+                [[ $1 == switch ]] && [[ $2 == remote ]] && {
+                    ${hm-remote}/bin/hm-remote
+                }
+              }
+
+              main "$@"
+            '';
+            executable = true;
+            destination = "/bin/hm";
+            checkPhase = ''
+              ${super.shellcheck}/bin/shellcheck -x "$out"/bin/hm
+            '';
+          };
+
+          zk = super.callPackage ~/.config/nixpkgs/program/go/zk {};
+
+          tickgit = super.callPackage ~/.config/nixpkgs/program/go/tickgit {};
+
           pandoc-plantuml-filter = super.pandoc-plantuml-filter.overrideAttrs (old: {
             src = super.fetchFromGitHub {
               owner = sources.pandoc-plantuml-filter.owner;
@@ -99,6 +274,24 @@ in with { overlay = _: pkgs:
         ever-given = super.callPackage sources.ever-given {};
 
         # https://nixos.wiki/wiki/Overlays#Python_Packages_Overlay - rec also possible here instead of self.ever-given
+        /*git-cliff =
+          self.ever-given.buildRustPackage {
+            src = super.fetchFromGitHub {
+              owner = "orhun";
+              repo = "git-cliff";
+              rev = "ba3f1cac50338672c555581659e098e11796f466";
+              sha256 = "0n75kl4dvi7mygyawaym14zdz2k6wk94gpx3ijqyz8dwqvpc4gy2";
+            } + "/git-cliff";
+          };
+        git-cliff-core =
+          self.ever-given.buildRustPackage {
+            src = super.fetchFromGitHub {
+              owner = "orhun";
+              repo = "git-cliff";
+              rev = "ba3f1cac50338672c555581659e098e11796f466";
+              sha256 = "0n75kl4dvi7mygyawaym14zdz2k6wk94gpx3ijqyz8dwqvpc4gy2";
+            } + "/git-cliff-core";
+          };*/
         rnix-lsp =
             self.ever-given.buildRustPackage {
                   src =
@@ -127,6 +320,7 @@ in with { overlay = _: pkgs:
 #                };
 #              };
             })
+            # TODO Add neovim plugins, i. e. https://github.com/numToStr/FTerm.nvim
             (import sources.neovim-nightly-overlay)
           ]; config = {};
         };
@@ -237,7 +431,12 @@ in with { overlay = _: pkgs:
       '';
 
       home.packages =  with pkgs;[
-    #  neovim.io - Vim-fork focused on extensibility and usability
+
+    myenv-script
+
+    home-manager-script
+
+    # neovim.io - Vim-fork focused on extensibility and usability
     neovim-nightly
 
     # neovim dependencies
@@ -250,6 +449,12 @@ in with { overlay = _: pkgs:
     tree-sitter
     rust-analyzer
     clang-tools
+
+    # https://github.com/mickael-menu/zk - zk is a command-line tool helping you to maintain a plain text Zettelkasten or personal wiki.
+    zk
+
+    # https://github.com/augmentable-dev/tickgit - tickgit is a tool to help you manage latent work in a codebase.
+    tickgit
 
     # I am using this ruby env for a mail-filter script
     wrappedRuby
@@ -1366,7 +1571,7 @@ echo $out
         EOF
         chmod +x $out
         '';
-    };
+      };
 
     "bin/pbcopy" = {
       source = runCommand "ftchScr" {

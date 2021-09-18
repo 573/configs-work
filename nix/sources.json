@@ -103,7 +103,7 @@
         "owner": "tweag",
         "repo": "gomod2nix",
         "rev": "67f22dd738d092c6ba88e420350ada0ed4992ae8",
-        "sha256": "0ds4iy9x69h6z0afm9yjwsw9q8l95ayvwkbnl6ifh8f8paffh2xw",
+        "sha256": "0a9rhw6djgcrky5nzly3srsl8095q42f2nyzxyisp9fh9fg70nih",
         "type": "tarball",
         "url": "https://github.com/tweag/gomod2nix/archive/0ds4iy9x69h6z0afm9yjwsw9q8l95ayvwkbnl6ifh8f8paffh2xw.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"

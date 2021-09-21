@@ -200,10 +200,10 @@
         "homepage": "https://search.nixos.org/packages",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "d5bd34ebf2c2c2b380b76cb86bc68522bc6af4d7",
-        "sha256": "0iqq9dw4bvczi7zlngql2x4z2h5l9bim4c9j0gzlj9c0xv95cv7r",
+        "rev": "e0ce3c683ae677cf5aab597d645520cddd13392b",
+        "sha256": "08ans3w6r4fbs1wx6lzlp4xwhy6p04x3spvvrjz5950w8mzxqm61",
         "type": "tarball",
-        "url": "https://github.com/NixOS/nixpkgs/archive/d5bd34ebf2c2c2b380b76cb86bc68522bc6af4d7.tar.gz",
+        "url": "https://github.com/NixOS/nixpkgs/archive/e0ce3c683ae677cf5aab597d645520cddd13392b.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "nixpkgs-haskell-updates": {

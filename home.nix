@@ -22,6 +22,9 @@ in with { overlay = _: pkgs:
         }}/overlay.nix")
         (self: super: # until 0.2.0 is released and in nixpkgs
         let
+
+          inherit (pkgs) aspellWithDicts;
+
           # Custom nix related shell scripts - https://github.com/malob/nixpkgs/blob/0f1fc6e10de9f182114df3406228fc75330e4fe2/home-manager/configuration.nix#L91
           # Collect garbage, optimize store, repair paths
           nix-cleanup-store = super.writeTextFile {
@@ -114,9 +117,11 @@ in with { overlay = _: pkgs:
             '';
           };
 
-          # TODO shellcheck ggf. ersetzen durch Fuuzetsu/shellcheck-nix-attributes oder
+          # TODO shellcheck ggf. ersetzen durch Fuuzetsu/shellcheck-nix-attributes (beachte aber: https://github.com/Fuuzetsu/shellcheck-nix-attributes/commit/2db67c428f40e2dcfd6dde6770e68cbb4c05a6e2#r56807690) oder
           # shellcheckedScriptBin and shellcheckedScript - https://github.com/nix-community/linuxkit-nix/blob/2e25fc8b057c647144ffa7c9b9bdb325f2dd2d23/linuxkit-builder/default.nix#L48
         in {
+          # Now the custom aspell with custom dictionary set configured
+          myaspell = aspellWithDicts (d: [d.en d.fr d.de]);
 
           myenv-script = super.writeTextFile {
             name = "myenv";
@@ -146,9 +151,11 @@ in with { overlay = _: pkgs:
                     ${nix-update-mypkgs}/bin/nix-update-mypkgs
                   fi
                   if [ "$1" = 'update' ] || { [ "$1" = 'nix' ] && { [ "$2" = 'update' ] || [ "$2" = 'update-mypkgs' ] || [ "$2" = 'rebuild' ]; }; }; then
-                    ${if (builtins.elemAt (builtins.match "NAME=\"?([A-z]+)\"?.*" (builtins.readFile /etc/os-release)) 0) == "NixOS" then  "nixos-rebuild switch"
-                    else
-                    "home-manager switch"
+                    ${
+                      if !(self.pkgs.stdenv.isAarch64) &&
+                        (builtins.elemAt (builtins.match "NAME=\"?([A-z]+)\"?.*" (builtins.readFile /etc/os-release)) 0) == "NixOS" then  "nixos-rebuild switch"
+                      else
+                        "home-manager switch"
                     }
                     if [ "$1" = 'nix' ]; then exit 0; fi
                   elif [ "$1" = 'clean' ] || { [ "$1" = 'nix' ] && [ "$2" = 'clean' ]; }; then
@@ -274,24 +281,7 @@ in with { overlay = _: pkgs:
         ever-given = super.callPackage sources.ever-given {};
 
         # https://nixos.wiki/wiki/Overlays#Python_Packages_Overlay - rec also possible here instead of self.ever-given
-        /*git-cliff =
-          self.ever-given.buildRustPackage {
-            src = super.fetchFromGitHub {
-              owner = "orhun";
-              repo = "git-cliff";
-              rev = "ba3f1cac50338672c555581659e098e11796f466";
-              sha256 = "0n75kl4dvi7mygyawaym14zdz2k6wk94gpx3ijqyz8dwqvpc4gy2";
-            } + "/git-cliff";
-          };
-        git-cliff-core =
-          self.ever-given.buildRustPackage {
-            src = super.fetchFromGitHub {
-              owner = "orhun";
-              repo = "git-cliff";
-              rev = "ba3f1cac50338672c555581659e098e11796f466";
-              sha256 = "0n75kl4dvi7mygyawaym14zdz2k6wk94gpx3ijqyz8dwqvpc4gy2";
-            } + "/git-cliff-core";
-          };*/
+
         rnix-lsp =
             self.ever-given.buildRustPackage {
                   src =
@@ -432,7 +422,16 @@ in with { overlay = _: pkgs:
 
       home.packages =  with pkgs;[
 
-    myenv-script
+        # aspell with some dictionaries configured
+        myaspell
+
+        # https://github.com/helix-editor/helix - A kakoune / neovim inspired editor, written in Rust.
+        helix
+
+        # https://github.com/orhun/git-cliff - git-cliff can generate changelog files from the Git history by utilizing conventional commits as well as regex-powered custom parsers.
+        gitAndTools.git-cliff
+
+      myenv-script
 
     home-manager-script
 

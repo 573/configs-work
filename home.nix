@@ -144,7 +144,9 @@ in with { overlay = _: pkgs:
                   # Nix
                   if [ "$1" = 'update' ] || { [ "$1" = 'nix' ] && [ "$2" = 'update' ]; }; then
                     pushd ~/.config/nixpkgs || exit
-                    ${self.pkgs.niv}/bin/niv update "$3"
+                    '' +
+                    super.lib.optionalString (!super.stdenv.isAarch64) '' ${self.niv}/bin/niv update "$3" ''
+                    + ''
                     popd || exit
                   fi
                   if [ "$1" = 'update' ] || { [ "$1" = 'nix' ] && [ "$2" = 'update-mypkgs' ]; }; then
